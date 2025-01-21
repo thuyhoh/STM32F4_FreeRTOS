@@ -37,11 +37,11 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 /* USER CODE END PD */
-#define UNPRESS 0
-#define PRESS  1
+
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define UNPRESS 0
+#define PRESS 1
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -58,7 +58,7 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void led_task_handler(void* parameters);
-static void button_task_handler(void* parameters);
+
 
 /* USER CODE END PFP */
 
@@ -104,8 +104,6 @@ int main(void)
   status = xTaskCreate(led_task_handler, "LED Task", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
   configASSERT(status == pdPASS);
 
-  status = xTaskCreate(button_task_handler, "BUTTON Task", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
-  configASSERT(status == pdPASS);
 
   //start the freeRTOS scheduler
   vTaskStartScheduler();
@@ -257,16 +255,17 @@ static void led_task_handler(void* parameters)
 	}
 }
 
-static void button_task_handler(void* parameters)
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	while(1)
+	if(GPIO_Pin == GPIO_PIN_0)
 	{
-		if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
-		{
-			BNT_Status = PRESS;
-		}else
+		if(BNT_Status == PRESS)
 		{
 			BNT_Status = UNPRESS;
+		}
+		else
+		{
+			BNT_Status = PRESS;
 		}
 	}
 }
