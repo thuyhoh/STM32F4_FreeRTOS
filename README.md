@@ -96,7 +96,7 @@ BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
     note : có thẻ sử dụng hàm để kiểm tra API có thành công hay không
 */
 ```
-### 2. API Task Implementation Function
+### 2. Task Implementation Function
 ``` C
 void vATaskFuntion(void *arg)
 {
@@ -163,7 +163,13 @@ Nếu bạn đang sử dụng bộ xử lý ARM Cortex Mx thì bạn sẽ có th
 - vPortSVCHandler()     : Được sử dụng để đạt được ngữ cảnh chuyển đổi giữa các tác vụ Được kích hoạt bằng cách chờ PendSV Ngoại lệ hệ thống của ARM
 - xPortSysTickHandler() : Điều này thực hiện quản lý RTOS Tick. Được kích hoạt định kỳ bởi bộ đếm thời gian Systick của bộ xử lý ARM Cortex Mx
 
-### 5. API vTaskStartScheduler()
+### 5. FreeRTOS Scheduling Policies
+#### 1. Scheduling Policies
+- Pre-emptive Scheduling
+![image](./img/Scheduling_Policies_1.png)
+- Priority based Pre-Emptive Scheduling 
+- co-operative Scheduling
+#### 2. API xTaskStartScheduler
 ``` C
 void xTaskStartScheduler(void);
 ```
@@ -264,5 +270,151 @@ thoát ngoại lệ
 ![image](./img/POP_all_Core_Registers.png)
 3. Exception Exit 
 ![image](./img/Exception_Exit.png)
+
+## X. RTOS Task Notification
+### 1. RTOS Task Notification
+- Mỗi tác vụ RTOS có 32 bit giá trị thông báo và được khởi tạo thành 0 khi tác vụ RTOS được tạo
+- Thông báo tác vụ RTOS là sự kiện được gửi trực tiếp đến tác vụ có thể bỏ chặn tác vụ nhận và tùy chọn cập nhật giá trị thông báo của tác vụ nhận theo nhiều cách khác nhau. 
+- ``Ví dụ``: thông báo có thể ghi đè giá trị thông báo của tác vụ nhận hoặc chỉ đặt một hoặc nhiều bit trong giá trị thông báo của tác vụ nhận.
+### 2. xTaskNotifyWait API
+- Nếu một tác vụ gọi xTaskNotifyWait(), thì nó sẽ đợi với thời gian chờ tùy chọn cho đến khi nhận được thông báo từ một tác vụ hoặc trình xử lý ngắt khác.
+``` c
+BaseType_t xTaskNotifyWait ( uint32_t ulBitsToClearOnEntry,  uint32_t  ulBitsToClearOnExit, uint32_t  *pulNotificationValue,  TickType_t  xTicksToWait ); 
+/*
+    @param[ulBitsToClearOnEntry] : Bất kỳ bit nào được đặt trong ulBitsToClearOnEntry sẽ bị xóa khi gọi giá trị thông báo của tác vụ RTOS gọi khi truy nhập hàm xTaskNotifyWait()
+    @param[ulBitsToClearOnExit]  : Bất kỳ bit nào được đặt trong ulBitsToClearOnExit sẽ được xóa trong giá trị thông báo của tác vụ RTOS đang gọi trước khi hàm xTaskNotifyWait() thoát
+    @param[pulNotificationValue] : Được sử dụng để nhận giá trị thông báo từ xTaskNotify của tác vụ RTOS muốn truyền. Nếu giá trị thông báo này không cần thiết đặt giá trị về NULL
+    @param[xTicksToWait]         : Thời gian tối đa nhận thông báo
+    // ms chuyển đổi tick = (ms/configTICK_RATE_HZ)/1000
+
+    @retval : pdTRUE nếu đã nhận được thông báo. pdFALSE nếu sảy ra TIMEOUT
+*/
+```
+
+### 3. API xTaskNotify() 
+- xTaskNotify() được sử dụng để gửi sự kiện trực tiếp đến và bỏ chặn các tác vụ RTOS tiềm năng, và tùy chọn cập nhật giá trị thông báo của tác vụ nhận theo một trong những cách sau:
+\- Viết một số 32 bit vào giá trị thông báo
+\- Thêm một (tăng) giá trị thông báo
+\- Đặt một hoặc nhiều bit trong giá trị thông báo
+\- Giữ nguyên giá trị thông báo
+``` C
+BaseType_t xTaskNotify( TaskHandle_t  xTaskToNotify, uint32_t  ulValue,  eNotifyAction eAction );
+/*
+    @param[xTaskToNotify] : trỏ đến RTOS task vụ được thông báo
+    @param[ulValue]       : Được sử dụng để cập nhật giá trị thông báo của tác vụ chủ đề
+    @param[eAction]       : 
+        - eNoAction 
+        - eIncrement 
+        - eSetValueWithOverwrite
+
+    @retval :
+*/
+```
+
+## XI. API vTaskDelete
+``` C
+void vTaskDelete( xTaskHandle *pxTaskToDelete );
+/*
+    @param[pxTaskToDelete] : 
+*/
+```
+## FreeRTOS Hardware Interrupt Configuration Items 
+### 1. configKERNEL_INTERRUPT_PRIORITY
+- configKERNEL_INTERRUPT_PRIORITY: Mục cấu hình mức độ ưu tiên ngắt hạt nhân và được đặt ở mức độ ưu tiên ngắt thấp nhất có thể.
+\- Systick Interrupt \
+\- PendSV interrupt \
+\- SVC interrupt
+### 2. configMAX_SYSCALL_INTERRUPT_PRIORITY
+- configMAX_SYSCALL_INTERRUPT_PRIORITY: Mục cấu hình mức độ ưu tiên ngắt hệ thống quyết định mức độ ưu tiên tối đa, và cho phép sử dụng những API freertos kết thúc bằng “FromIsr” trong các quy trình dịch vụ ngắt của chúng.
+- ``note`` : 0 là mức ưu tiên tối đa của Cortex-Mx do dó không thể để những API có mức ưu tiên (Urgency) cao hơn mức ưu tiên được xác định bởi configMAX_SYSCALL_INTERRUPT_PRIORITY Do đó, bất kỳ trình dịch vụ ngắt nào sử dụng hàm API RTOS phải có giá trị ưu tiên được đặt thủ công thành giá trị bằng hoặc lớn hơn giá trị configMAX_SYSCALL_INTERRUPT_PRIORITY thiết lập
+
+## XII. Priority of FreeRTOS Tasks 
+### FreeRTOS Task Priority and Processor Interrupt/Exception Priority
+![image](./img/taskPriority_1.png)
+- Processor Interrupt/Exception Priority : mức ưu tiên thấp hơn sẽ được ưu tiên hơn các mưc ưu tiên cao hơn  
+- FreeRTOS Task Priority : ưu tiên càng cao thì tương ứng sẽ càng được ưu tiên hơn
+###  FreeRTOS Task Priority APIs
+- API to set Priority 
+``` c
+void vTaskPrioritySet( xTaskHandle pxTask, unsigned portBASE_TYPE  uxNewPriority );
+```
+- API to Get Priority
+``` c
+unsigned portBASE_TYPE uxTaskPriorityGet( xTaskHandle  pxTask );
+```
+## XIII. Interrupt Safe and Interrupt Un-Safe APIs
+- Bất cứ khi chương trình thực hiện ngắt phải sử dụng FreeRTOS API có kết thúc bằng từ “FromISR”(Queue_write/Queue_write_FromISR, ...)
+- ``note`` : Điều này là do, Khi ở trong Contex ngắt (tức là đang ở giữa việc phục vụ ISR - handler mode), không thể quay lại Bối cảnh tác vụ (tức là tạo tác vụ để chạy bằng cách chiếm trước ISR - thread mode)
+
+## XIV. API taskYield
+- taskYIELD làm khiến task chuyển ngữ cảnh ngay lập tức(pending PendSV exception)
+``` C
+taskYIELD()
+```
+## XV. FreeRTOS Task States 
+![image](./img/taskstate.png)
+- Run state
+- Blocked state
+- Suspended state
+- Ready state
+## XVI. Task delay
+- ``note`` Không bao giờ sử dụng triển khai trễ dựa trên vòng lặp for, điều này làm tiêu tốn CPU mà không thực hiện bất kỳ công việc thực sự nào vẫn sẽ ngăn chặn bất kỳ tác vụ khác
+
+### 1. API vTaskDelay 
+\- chặn task xTicksToDelay(tick) kể từ lần gọi
+``` c
+void vTaskDelay( const TickType_t xTicksToDelay );
+```
+### 2. API xTaskDelayUntil
+\- xTaskDelayUntil tạo ra tần số delay chính sác
+\- API unblock task sau (*pxPreviousWakeTime + xTimeIncrement)
+\- API có thể trả về ngay lập tức nếu 
+``` C
+BaseType_t xTaskDelayUntil( TickType_t * const pxPreviousWakeTime, const TickType_t xTimeIncrement );
+/*
+    @param[pxPreviousWakeTime] : Con trỏ đến một biến lưu trữ thời gian mà tác vụ được bỏ chặn lần cuối. Biến phải được khởi tạo với thời gian hiện tại trước lần sử dụng đầu tiên. Sau đó, biến được tự động cập nhật trong xTaskDelayUntil().
+    @param[xTimeIncrement] : Chu kỳ thời gian. Task sẽ được bỏ chặn tại thời điểm (*pxPreviousWakeTime + xTimeIncrement)
+*/
+```
+- `` note ``: chuyển đổi ms->tick: tick = ms/portTICK_PERIOD_MS
+
+
+## XVII. FreeRTOS HOOK funtion
+### 1. Idle task HOOK function 
+- Nhiệm vụ nhàn rỗi chạy ở mức ưu tiên thấp nhất, do đó hàm idle hook như vậy sẽ chỉ được thực thi khi không có nhiệm vụ nào có mức ưu tiên cao hơn có thể chạy. Điều này khiến hàm vApplicationIdleHook() trở thành nơi lý tưởng để đưa bộ xử lý vào trạng thái năng lượng thấp - cung cấp khả năng tiết kiệm năng lượng tự động bất cứ khi nào không có quá trình xử lý nào được thực hiện.
+- đặt configUSE_IDLE_HOOK thành 1 trong FreeRTOSConfig.h có thể triển khai vApplicationIdleHook
+``` C
+void vApplicationIdleHook( void );
+```
+### 2. RTOS tick HOOK function 
+- Hook tick cung cấp một vị trí thuận tiện để triển khai chức năng hẹn giờ.
+
+- đăt configUSE_TICK_HOOK được đặt thành 1 trong FreeRTOSConfig.h có thể triển khai:
+``` C
+void vApplicationTickHook( void );
+```
+### 3. Malloc failed HOOK function
+- Các lược đồ phân bổ bộ nhớ được triển khai bởi heap_1.c, heap_2.c, heap_3.c, heap_4.c và heap_5.c có thể tùy chọn bao gồm hàm malloc() failure hook (hoặc callback) có thể được cấu hình để được gọi nếu pvPortMalloc() trả về NULL.
+
+- Việc định nghĩa malloc() failure hook sẽ giúp xác định các vấn đề do thiếu bộ nhớ heap - đặc biệt là khi lệnh gọi đến pvPortMalloc() không thành công trong một hàm API.
+
+- malloc failed hook sẽ chỉ được gọi nếu configUSE_MALLOC_FAILED_HOOK được đặt thành 1 trong FreeRTOSConfig.h.
+``` C
+void vApplicationMallocFailedHook( void );
+```
+### 4. Stack over flow HOOK function 
+- configUSE_DAEMON_TASK_STARTUP_HOOK được đặt thành 1.
+``` C
+void vApplicationDaemonTaskStartupHook( void );
+```
+## Queue
+## Semaphore
+## Mutual exculsion
+
+
+
+
+
+
 
 
