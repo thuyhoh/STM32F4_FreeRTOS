@@ -165,10 +165,12 @@ Nếu bạn đang sử dụng bộ xử lý ARM Cortex Mx thì bạn sẽ có th
 
 ### 5. FreeRTOS Scheduling Policies
 #### 1. Scheduling Policies
-- Pre-emptive Scheduling
+- Pre-emptive Scheduling : là hành động tạm thời ngắt một tác vụ đang thực thi với mục đích loại bỏ tác vụ đó khỏi trạng thái đang chạy mà không cần sự hợp tác của tác vụ đó.
 ![image](./img/Scheduling_Policies_1.png)
-- Priority based Pre-Emptive Scheduling 
-- co-operative Scheduling
+- Priority based Pre-Emptive Scheduling: trình lập lịch sẽ dựa vào mức độ ưu tiên của task để xác định thứ tự task chạy
+![image](./img/prirority_em_police.png)
+- co-operative Scheduling : là trình lập lịch dựa trên sư hợp tác. các task được chính người dùng lập thức tự chạy
+![image](./img/cooperative_scheduling.png)
 #### 2. API xTaskStartScheduler
 ``` C
 void xTaskStartScheduler(void);
@@ -368,11 +370,13 @@ void vTaskDelay( const TickType_t xTicksToDelay );
 ### 2. API xTaskDelayUntil
 \- xTaskDelayUntil tạo ra tần số delay chính sác
 \- API unblock task sau (*pxPreviousWakeTime + xTimeIncrement)
-\- API có thể trả về ngay lập tức nếu 
+<!-- \- API có thể trả về ngay lập tức nếu  -->
 ``` C
 BaseType_t xTaskDelayUntil( TickType_t * const pxPreviousWakeTime, const TickType_t xTimeIncrement );
 /*
-    @param[pxPreviousWakeTime] : Con trỏ đến một biến lưu trữ thời gian mà tác vụ được bỏ chặn lần cuối. Biến phải được khởi tạo với thời gian hiện tại trước lần sử dụng đầu tiên. Sau đó, biến được tự động cập nhật trong xTaskDelayUntil().
+    @param[pxPreviousWakeTime] : Con trỏ đến một biến lưu trữ thời gian mà tác vụ được bỏ chặn lần cuối. 
+    Biến phải được khởi tạo với thời gian hiện tại trước lần sử dụng đầu tiên.
+    Sau đó, biến được tự động cập nhật trong xTaskDelayUntil().
     @param[xTimeIncrement] : Chu kỳ thời gian. Task sẽ được bỏ chặn tại thời điểm (*pxPreviousWakeTime + xTimeIncrement)
 */
 ```
@@ -407,14 +411,159 @@ void vApplicationMallocFailedHook( void );
 ``` C
 void vApplicationDaemonTaskStartupHook( void );
 ```
-## Queue
-## Semaphore
+
+## Event Group API
+- để có thể sử dụng API này phải cấu hình configSUPPORT_DYNAMIC_ALLOCATION = 1. Include header file
+- configUSE_16_BIT_TICKS là một macro trong file cấu hình FreeRTOSConfig.h của FreeRTOS, được sử dụng để định cấu hình độ dài của kiểu dữ liệu được sử dụng để lưu trữ số lượng tick(flag) của hệ thống.
+\- Nếu configUSE_16_BIT_TICKS được định nghĩa là 1, TickType_t sẽ là kiểu dữ liệu 16-bit (ví dụ: uint16_t).
+\- Nếu configUSE_16_BIT_TICKS được định nghĩa là 0 (hoặc không được định nghĩa), TickType_t sẽ là kiểu dữ liệu 32-bit (ví dụ: uint32_t). 
+``` C
+/*
+    @reval : Nếu nhóm sự kiện đã được tạo thì một xử lý đến nhóm sự kiện sẽ được trả về.
+             Nếu không có đủ heap FreeRTOS để tạo nhóm sự kiện thì NULL sẽ được trả về. 
+*/
+EventGroupHandle_t xEventGroupCreate( void );
+```
+``` C
+EventGroupHandle_t xEventGroupCreateStatic( StaticEventGroup_t *pxEventGroupBuffer );
+```
+``` C
+/*
+    @brief:
+    
+    @param[xEventGroup]
+    @param[uxBitsToWaitFor]
+    @param[xClearOnExit]
+    @param[xWaitForAllBits]
+    @param[xTicksToWait]
+    
+    @retval
+*/
+EventBits_t xEventGroupWaitBits(
+                      const EventGroupHandle_t xEventGroup,
+                      const EventBits_t uxBitsToWaitFor,
+                      const BaseType_t xClearOnExit,
+                      const BaseType_t xWaitForAllBits,
+                      TickType_t xTicksToWait );
+```
+``` C
+EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToSet );
+```
+``` C
+BaseType_t xEventGroupSetBitsFromISR(
+                         EventGroupHandle_t xEventGroup,
+                         const EventBits_t uxBitsToSet,
+                         BaseType_t *pxHigherPriorityTaskWoken );
+```
+
 ## Mutual exculsion
+- nó cho phép chỉ một luồng duy nhất có thể truy cập vào tài nguyên được chia sẻ(shared resource) tại một thời điểm. Điều này tránh được tình trạng xung đột giữa các luồng khi sử dụng tài nguyên chung. Thông thường, phải khóa tài nguyên đó trước khi sử dụng và
+mở khóa sau khi bạn hoàn tất việc truy cập tài nguyên.
+``` C
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // Cấp phát tĩnh
+int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *atrr); // cấp phát động note khi không dùng dến phải có quá trình huỷ bỏ (pthread_mutex_destroy)
 
+int pthread_mutex_lock(pthread_mutex_t *mutex);
 
+int pthread_mutex_unlock(pthread_mutex_t *mutex);
+```
+``` C
+// ex
+void task1(void)
+{
+    pthread_mutex_lock(&mutex);
+    // shared resource here
+    pthread_mutex_unlock(&mutex);
+}
 
+```
+## Queue
+### Tổng quan
 
+### API
+- Tạo hàng chờ
+``` C
+QueueHandle_t xQueueGenericCreate( const UBaseType_t uxQueueLength,
+                                       const UBaseType_t uxItemSize,
+                                       const uint8_t ucQueueType );
+```
 
+``` C
+BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
+                              const void * const pvItemToQueue,
+                              TickType_t xTicksToWait,
+                              const BaseType_t xCopyPosition );
+```
 
+``` C
+BaseType_t xQueueReceive( QueueHandle_t xQueue,
+                          void * const pvBuffer,
+                          TickType_t xTicksToWait );
+```
+## Software Timer
+### giới thiệu về Software Timer
 
+### API
+``` C
+/*
+    @brief: khi RTOS_Tick đếm đến xTimerPeriod thì thực thi pxCallbackFunction
+
+*/
+TimerHandle_t xTimerCreate( const char * const pcTimerName,
+                            const TickType_t xTimerPeriod,
+                            const UBaseType_t uxAutoReload,
+                            void * const pvTimerID,
+                            TimerCallbackFunction_t pxCallbackFunction );
+
+void pxCallbackFunction( TimerHandle_t xTimer )
+{
+    // code
+}
+
+```
+``` C
+BaseType_t xTimerStart( TimerHandle_t xTimer, TickType_t xBlockTime );
+```
+``` C
+BaseType_t xTimerStop( TimerHandle_t xTimer, TickType_t xBlockTime );
+```
+``` C
+void *pvTimerGetTimerID( TimerHandle_t xTimer );
+```
+## Semaphore
+### giới thiệu về Semaphore
+- Semaphore là một cơ chế đồng bộ hóa được sử dụng trong FreeRTOS để điều phối việc truy cập vào tài nguyên dùng chung giữa các task. Semaphore hoạt động như một biến đếm, có thể được tăng hoặc giảm giá trị.
+
+- có 2 loại semaphore : binary semaphore và counting semaphore
+\- Semaphore nhị phân (binary semaphore) : cơ chế giống với mutex Có giá trị là 0 hoặc 1. Thường được dùng để bảo vệ tài nguyên chia sẻ hoặc đồng bộ hóa hai task. \
+\- Semaphore tăng (counting semaphore) : Có giá trị lớn hơn 1. Thường được dùng để quản lý một số lượng tài nguyên có hạn hoặc đếm các sự kiện.
+
+### API
+- tạo Semaphore
+``` C
+// binary semaphore
+SemaphoreHandle_t xSemaphoreCreateBinary( void );
+// counting semaphore
+SemaphoreHandle_t xSemaphoreCreateCounting( void ):
+// Mutex
+SemaphoreHandle_t xSemaphoreCreateMutex( void )
+
+```
+``` C
+/*
+    @brief: Trả lại một semaphore.
+*/
+BaseType_t xSemaphoreGive(xSemaphoreHandle xSemaphore);
+```
+``` C
+/*
+    @brief: Yêu cầu một semaphore. Nếu semaphore không có sẵn, task sẽ bị block cho đến khi semaphore có sẵn
+    @param[xBlockTime] : thời gian tối đa treo task
+*/
+BaseType_t xSemaphoreTake(  xSemaphoreHandle xSemaphore, 
+                            TickType_t xBlockTime   );
+```
+``` C
+void vSemaphoreDelete( SemaphoreHandle_t xSemaphore );
+```
 
