@@ -567,3 +567,4 @@ BaseType_t xSemaphoreTake(  xSemaphoreHandle xSemaphore,
 void vSemaphoreDelete( SemaphoreHandle_t xSemaphore );
 ```
 
+chế độ tăng mưc ưu tiên 
